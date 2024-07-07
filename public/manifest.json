@@ -3,7 +3,17 @@
   "name": "Gmail Extension",
   "description": "A Chrome extension for Gmail using React.",
   "version": "1.0",
-  "permissions": ["activeTab", "https://mail.google.com/"],
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://mail.google.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "index.html",
     "default_icon": {
@@ -12,14 +22,18 @@
       "128": "icons/icon128.png"
     }
   },
-  "background": {
-    "service_worker": "background.js"
-  },
   "content_scripts": [
     {
-      "matches": ["https://mail.google.com/*"],
-      "js": ["contentScript.js"],
-      "css": ["contentStyles.css"]
+      "matches": [
+        "https://mail.google.com/*"
+      ],
+      "js": [
+        "contentScript.js"
+      ],
+      "css": [
+        "contentStyles.css"
+      ],
+      "run_at": "document_idle"
     }
   ],
   "icons": {
