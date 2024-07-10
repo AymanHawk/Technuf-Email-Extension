@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Gmail Extension",
-  "description": "A Chrome extension for Gmail using React.",
+  "name": "Outlook Extension",
+  "description": "A Chrome extension for Outlook Web App using React.",
   "version": "1.0",
   "permissions": [
     "activeTab",
@@ -9,7 +9,7 @@
     "tabs"
   ],
   "host_permissions": [
-    "https://mail.google.com/*"
+    "https://outlook.office.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -25,7 +25,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://mail.google.com/*"
+        "https://outlook.office.com/*"
       ],
       "js": [
         "contentScript.js"

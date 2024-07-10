@@ -7,59 +7,67 @@ declare global {
   }
 }
 
-interface EmailCounts {
-  unread: number;
-  read: number;
-  total: number;
-}
-
 interface EmailDetails {
   sender: string;
-  recipients: string;
   subject: string;
   emailBody: string;
+  emailBodyText: string;
+}
+
+interface EmailThread {
+  emails: EmailDetails[];
 }
 
 function App() {
-  const [emailCounts, setEmailCounts] = useState<EmailCounts>({ unread: 0, read: 0, total: 0 });
-  const [emailDetails, setEmailDetails] = useState<EmailDetails | null>(null);
+  const [emailThread, setEmailThread] = useState<EmailThread | null>(null);
 
   useEffect(() => {
-    const getEmailsCountAndDetails = () => {
-      const unreadEmails = document.querySelectorAll('.zE');
-      const readEmails = document.querySelectorAll('.yO');
-      const totalEmails = unreadEmails.length + readEmails.length;
+    const captureEmailContents = () => {
+      // Expand all emails in the thread
+      const expandButtons = document.querySelectorAll('[aria-label="Show trimmed quoted text"]');
+      expandButtons.forEach(button => (button as HTMLElement).click());
 
-      const getEmailDetails = (): EmailDetails => {
-        const sender = (document.querySelector('.gD') as HTMLElement)?.innerText || '';
-        const recipients = (document.querySelector('.g2') as HTMLElement)?.innerText || '';
-        const subject = (document.querySelector('.hP') as HTMLElement)?.innerText || '';
+      const containerDivs = document.querySelectorAll('.L72vd');
 
-        // Collect email body content from multiple potential containers
-        const emailBodyElements = document.querySelectorAll('.a3s.aXjCH, .ii.gt');
-        const emailBody = Array.from(emailBodyElements).map(element => (element as HTMLElement).innerHTML).join(' ') || '';
+      const emails = Array.from(containerDivs).map(containerDiv => {
+        const senderElement = containerDiv.querySelector('.OZZZK');
+        const sender = senderElement ? (senderElement as HTMLElement).innerText : 'Unknown Sender';
+
+        const subjectElement = containerDiv.querySelector('.WWy1F .WWy1F .MByod.JdFsz');
+        const subject = subjectElement ? (subjectElement as HTMLElement).innerText : 'No Subject';
+
+        const emailBodyElements = containerDiv.querySelectorAll('.XbIp4.jmmB7.GNqVo.allowTextSelection.OuGoX');
+        const emailBodyHTML = Array.from(emailBodyElements).map(element => (element as HTMLElement).innerHTML).join(' ') || 'No Body Content';
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(emailBodyHTML, 'text/html');
+
+        doc.querySelectorAll('style, script, img, .unwanted-class').forEach(el => el.remove());
+
+        const emailBodyText = Array.from(doc.body.childNodes)
+          .filter(node => node.nodeType === Node.TEXT_NODE || node.nodeType === Node.ELEMENT_NODE)
+          .map(node => (node as HTMLElement).innerText || node.textContent)
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
 
         return {
           sender,
-          recipients,
           subject,
-          emailBody,
+          emailBody: emailBodyHTML,
+          emailBodyText
         };
-      };
+      });
 
-      const emailDetails = getEmailDetails();
-
-      return {
-        counts: {
-          unread: unreadEmails.length,
-          read: readEmails.length,
-          total: totalEmails
-        },
-        details: emailDetails
-      };
+      return { emails };
     };
 
-    console.log('Fetching email counts and details...');
+    const getEmailsCountAndDetails = () => {
+      const emailThread = captureEmailContents();
+      return { details: emailThread };
+    };
+
+    console.log('Fetching email details...');
     if (window.chrome && window.chrome.tabs && window.chrome.scripting) {
       window.chrome.tabs.query({ active: true, currentWindow: true }, (tabs: any) => {
         if (tabs.length === 0) {
@@ -78,8 +86,7 @@ function App() {
               return;
             }
             if (results && results[0]) {
-              setEmailCounts(results[0].result.counts);
-              setEmailDetails(results[0].result.details);
+              setEmailThread(results[0].result.details);
             } else {
               console.error('No results from script execution.');
             }
@@ -90,10 +97,9 @@ function App() {
       console.error('Chrome API is not available.');
     }
 
-    // Listen for messages from the content script
-    const handleMessage = (message: EmailDetails) => {
-      console.log('Received email details in React Component:', message); // Log here
-      setEmailDetails(message);
+    const handleMessage = (message: EmailThread) => {
+      console.log('Received email thread details in React Component:', message);
+      setEmailThread(message);
     };
 
     window.chrome.runtime.onMessage.addListener(handleMessage);
@@ -104,25 +110,29 @@ function App() {
   }, []);
 
   useEffect(() => {
-    console.log(emailDetails);
-  }, [emailDetails, setEmailDetails]);
+    console.log(emailThread);
+  }, [emailThread]);
 
   return (
     <div className="App bg-blue-100 min-h-screen w-[300px] text-center p-4">
-      {emailCounts &&
-        <div>
-          <h1 className="text-2xl font-bold">Unread Emails: {emailCounts.unread}</h1>
-          <h1 className="text-2xl font-bold">Read Emails: {emailCounts.read}</h1>
-          <h1 className="text-2xl font-bold">Total Emails: {emailCounts.total}</h1>
-        </div>
-      }
-      {emailDetails && (
+      <h2>Add On / Off toggle </h2>
+      <h2> Also render a button under the reply section to SUGGEST RESPONSE and IMPROVE RESPONSE - only render when reply is clicked  </h2>
+      {emailThread && (
         <div className="email-details text-left mt-4">
-          <h2 className="text-xl font-bold">Email Details:</h2>
-          <p><strong>Sender:</strong> {emailDetails.sender}</p>
-          <p><strong>Recipients:</strong> {emailDetails.recipients}</p>
-          <p><strong>Subject:</strong> {emailDetails.subject}</p>
-          <div><strong>Body:</strong> <div dangerouslySetInnerHTML={{ __html: emailDetails.emailBody }} /></div>
+          <h2 className="text-xl font-bold">Email Thread Details:</h2>
+          {emailThread.emails.map((email, index) => (
+            <div key={index}>
+              <p><strong>Sender:</strong> {email.sender}</p>
+              <p><strong>Subject:</strong> {email.subject}</p>
+              <div><strong>Body:</strong> <div dangerouslySetInnerHTML={{ __html: email.emailBody }} /></div>
+              <hr />
+            </div>
+          ))}
+          <button
+            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full"
+          >
+            Scan Email
+          </button>
         </div>
       )}
     </div>
